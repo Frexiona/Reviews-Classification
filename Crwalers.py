@@ -7,12 +7,13 @@ import re
 import pandas as pd
 import numpy as np
 
+
 # Crawlers
 # Functions:
 # 1. Get the formatted html file from the specific URL
 # 2. Get all the categories and their URLs from the index page
 # 3. Get all the information for the specific category including name, location, tags and it's URL
-class Crawlers():
+class Crawlers:
 
     # Initialize the necessary data
     def __init__(self):
@@ -68,9 +69,11 @@ class Crawlers():
         elif theme_name == 'Restaurants':
             return dfg.getDataFrameofSecondPage(4)
 
-
-
-class DataFrameGenerator():
+# Data Frame Generator
+# Functions:
+# 1. Format the information for the specific category including name, location, tags and it's URL into DataFrame
+# 2. Get all the data including names, commentators, dates, stars and comments from specific category
+class DataFrameGenerator:
     def __init__(self):
         pass
 
@@ -104,21 +107,55 @@ class DataFrameGenerator():
 
         return df
 
-    # Get all the reviews data from specific 
+    # Get all the data including names, commentators, dates, stars and comments from specific category
+    # Return Format: DataFrame
     def getDataFrameofThirdPage(self, df_from_second_page):
         c = Crawlers()
 
         urls = df_from_second_page['URL']
-        for each_url in urls:
-            html =
+        df = pd.DataFrame(columns=['Name', 'Commentator', 'Date', 'Star', 'Comment'])
+        for count in range(len(urls)):
+            html = c.urlOpen(urls[count])
+            names, dates, commentators, review_stars, comments = list(), list(), list(), list(), list()
 
-class TextCleaner():
+            for each_date_commentator in html.findAll('p', {'class': 'review-top'}):
+                each_date_commentator = each_date_commentator.get_text(strip=True).split('by')
+                dates.append(each_date_commentator[0].replace('Reviewed on ', ''))
+                commentators.append(each_date_commentator[1])
 
+            for each_review_star in html.findAll('p', {'class': 'stars'}):
+                each_review_star = each_review_star.find('img')['alt']
+                if each_review_star == '5-star' or each_review_star == '4-star':
+                    each_review_star = 'positive'
+                else:
+                    each_review_star = 'negative'
+                review_stars.append(each_review_star)
+
+            for each_comment in html.findAll('p', {'class': 'text'}):
+                comments.append(TextCleaner().cleanText(each_comment.get_text(strip=True)))
+
+            for i in range(len(dates)):
+                names.append(df_from_second_page['Name'][count])
+
+            df_temp = pd.DataFrame(data=[name for name in names], columns=['Name'])
+            df_temp['Commentator'] = np.array([commentator for commentator in commentators])
+            df_temp['Date'] = np.array([date for date in dates])
+            df_temp['Star'] = np.array([review_star for review_star in review_stars])
+            df_temp['Comment'] = np.array([comment for comment in comments])
+
+            df = df.append(df_temp, ignore_index=True)
+
+        return df
+
+
+# Text Cleaner
+# Functions:
+# 1.Clean the text
+class TextCleaner:
     def __init__(self):
         pass
 
-
-    def cleanStr(self, text):
+    def cleanText(self, text):
         try:
             # python UCS-4 build
             high_points = re.compile(u'[\U00010000-\U0010ffff]')
@@ -132,4 +169,13 @@ class TextCleaner():
 
 if __name__ == '__main__':
     crawler = Crawlers()
-    print(crawler.getDataFramefromTheme('Restaurants'))
+    df_generator = DataFrameGenerator()
+
+    df_hotels = crawler.getDataFramefromTheme('Hotels')
+    df_restaurants = crawler.getDataFramefromTheme('Restaurants')
+
+    df_hotels = df_generator.getDataFrameofThirdPage(df_hotels)
+    df_restaurants = df_generator.getDataFrameofThirdPage(df_restaurants)
+
+    print(df_hotels)
+    print(df_restaurants)
