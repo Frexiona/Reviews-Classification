@@ -3,9 +3,12 @@
 
 import urllib.request
 import bs4
+import nltk
 import re
 import pandas as pd
 import numpy as np
+
+from nltk.corpus import stopwords
 
 
 # Crawlers
@@ -166,16 +169,46 @@ class TextCleaner:
         resolve_value = high_points.sub(u'', text)
         return resolve_value
 
+    # Combine the preprocess functions into one function
+    def preProcess(self):
+        pass
+
+    # Tokenlize the text
+    # Return Format: list()
+    def tokenlizeText(self, texts):
+        items_list = list()
+        for j in range(len(texts)):
+            items_list.append(nltk.word_tokenize(texts[j]))
+
+        return items_list
+
+    # Remove the Punctuations, Stop Words and lowercase the item from the Item list
+    # Return Format: list()
+    def removePuncStopwords(self, items_list):
+        for z in range(len(items_list)):
+            items_list[z] = [w.lower() for w in items_list[z] if w.isalnum()]
+            items_list[z] = [i for i in items_list[z] if (i not in stopwords.words('english'))]
+
+        return items_list
+
+
 
 if __name__ == '__main__':
     crawler = Crawlers()
     df_generator = DataFrameGenerator()
 
-    df_hotels = crawler.getDataFramefromTheme('Hotels')
-    df_restaurants = crawler.getDataFramefromTheme('Restaurants')
-
-    df_hotels = df_generator.getDataFrameofThirdPage(df_hotels)
-    df_restaurants = df_generator.getDataFrameofThirdPage(df_restaurants)
+    # Get the Dataframes for the Hotels and Restaurants
+    # df_hotels = crawler.getDataFramefromTheme('Hotels')
+    # df_restaurants = crawler.getDataFramefromTheme('Restaurants')
+    # df_hotels = df_generator.getDataFrameofThirdPage(df_hotels)
+    # df_restaurants = df_generator.getDataFrameofThirdPage(df_restaurants)
+    #
+    # print(df_hotels)
+    # print(df_restaurants)
+    # df_hotels.to_csv('hotels.csv', sep=',', encoding='utf-8', index=False)
+    # df_restaurants.to_csv('restaurants.csv', sep=',', encoding='utf-8', index=False)
+    df_hotels = pd.read_csv('hotels.csv', sep=',')
+    df_restaurants = pd.read_csv('restaurants.csv', sep=',')
 
     print(df_hotels)
     print(df_restaurants)
