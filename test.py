@@ -1,7 +1,4 @@
-a = 'Category: Automotive(1455 reviews)'
+from sklearn.datasets import load_iris
+iris = load_iris()
 
-b = a.split('(')[0]
-c = a.split('(')[1].replace(' reviews)', '')
-
-print(b)
-print(c)
+print(iris)
