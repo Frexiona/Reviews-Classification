@@ -9,6 +9,12 @@ import pandas as pd
 import numpy as np
 
 from nltk.corpus import stopwords
+from nltk.tokenize import RegexpTokenizer
+from nltk.stem import WordNetLemmatizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
 
 # Crawlers
@@ -135,7 +141,7 @@ class DataFrameGenerator:
                 review_stars.append(each_review_star)
 
             for each_comment in html.findAll('p', {'class': 'text'}):
-                comments.append(TextCleaner().cleanText(each_comment.get_text(strip=True)))
+                comments.append(TextProcessor().cleanText(each_comment.get_text(strip=True)))
 
             for i in range(len(dates)):
                 names.append(df_from_second_page['Name'][count])
@@ -150,11 +156,19 @@ class DataFrameGenerator:
 
         return df
 
+    # Return the cleaned items with DataFrame format
+    # Return Format: DataFrame
+    def getDataFramefromList(self, items_list, df_lables):
+        df = pd.DataFrame(data=[" ".join(review) for review in items_list], columns=['clean_comments'])
+        df['lables'] = df_lables.replace('positive', 1).replace('negative', 0)
+
+        return df
+
 
 # Text Cleaner
 # Functions:
 # 1.Clean the text
-class TextCleaner:
+class TextProcessor:
     def __init__(self):
         pass
 
@@ -170,32 +184,72 @@ class TextCleaner:
         return resolve_value
 
     # Combine the preprocess functions into one function
-    def preProcess(self):
-        pass
+    def preProcess(self, df):
+        df = df.values
+        items_list = list()
+
+        tokenlizer = RegexpTokenizer(r'\w+')
+        lemmatizer = WordNetLemmatizer()
+
+        # Tokenlize the comments and remove the punctuations
+        for j in range(len(df)):
+            items_list.append(tokenlizer.tokenize(df[j]))
+
+        # Remove the stop words and lemmatisation
+        for z in range(len(items_list)):
+            for index in range(len(items_list[z])):
+                if items_list[z][index].isalnum():
+                    # Lowercase and lemmatize the words
+                    items_list[z][index] = lemmatizer.lemmatize(items_list[z][index].lower())
+
+            items_list[z] = [i for i in items_list[z] if (i not in stopwords.words('english'))]
+
+        return items_list
+
+    def getTFIDF(self, df):
+        vectorizer = TfidfVectorizer()
+        df_with_tfidf = vectorizer.fit_transform(df.values)
+
+        return df_with_tfidf.toarray()
+
 
     # Tokenlize the text
     # Return Format: list()
-    def tokenlizeText(self, texts):
+    def tokenlizeText(self, df):
         items_list = list()
-        for j in range(len(texts)):
-            items_list.append(nltk.word_tokenize(texts[j]))
+        for j in range(len(df)):
+            items_list.append(nltk.word_tokenize(df[j]))
 
         return items_list
 
     # Remove the Punctuations, Stop Words and lowercase the item from the Item list
     # Return Format: list()
     def removePuncStopwords(self, items_list):
+        lemmatizer = WordNetLemmatizer()
         for z in range(len(items_list)):
-            items_list[z] = [w.lower() for w in items_list[z] if w.isalnum()]
+            for index in range(len(items_list[z])):
+                lemmatizer.lemmatize(items_list[z][index])
+                if items_list[z][index].isalnum():
+                    items_list[z][index].lower()
+
             items_list[z] = [i for i in items_list[z] if (i not in stopwords.words('english'))]
 
         return items_list
+
+
+class DataProcess:
+    def __init__(self):
+        pass
+
+    def getTFIDF(self):
+        pass
 
 
 
 if __name__ == '__main__':
     crawler = Crawlers()
     df_generator = DataFrameGenerator()
+    text_cleaner = TextProcessor()
 
     # Get the Dataframes for the Hotels and Restaurants
     # df_hotels = crawler.getDataFramefromTheme('Hotels')
@@ -209,6 +263,16 @@ if __name__ == '__main__':
     # df_restaurants.to_csv('restaurants.csv', sep=',', encoding='utf-8', index=False)
     df_hotels = pd.read_csv('hotels.csv', sep=',')
     df_restaurants = pd.read_csv('restaurants.csv', sep=',')
+    # print(df_hotels)
 
-    print(df_hotels)
-    print(df_restaurants)
+    review_document_hotels_data = text_cleaner.preProcess(df_hotels['Comment'])
+    df_cleancomments = df_generator.getDataFramefromList(review_document_hotels_data, df_hotels['Star'])
+    hotel_data = text_cleaner.getTFIDF(df_cleancomments['clean_comments'])
+    hotel_data_label = df_cleancomments['lables'].to_numpy()
+    # print(df_restaurants)
+
+    model = KNeighborsClassifier(n_neighbors=3)
+    dataset_train, dataset_test, target_train, target_test = train_test_split(hotel_data, hotel_data_label, test_size=0.2)
+    model.fit(dataset_train, target_train)
+    predicted = model.predict(dataset_test)
+    accuracy_score(target_test, predicted)
