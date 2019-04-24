@@ -7,6 +7,7 @@ import nltk
 import re
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 from nltk.corpus import stopwords
 from nltk.tokenize import RegexpTokenizer
@@ -15,6 +16,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import SVC
+from sklearn import linear_model
+from sklearn.model_selection import cross_val_score
 
 
 # Crawlers
@@ -252,27 +258,187 @@ if __name__ == '__main__':
     text_cleaner = TextProcessor()
 
     # Get the Dataframes for the Hotels and Restaurants
-    # df_hotels = crawler.getDataFramefromTheme('Hotels')
-    # df_restaurants = crawler.getDataFramefromTheme('Restaurants')
-    # df_hotels = df_generator.getDataFrameofThirdPage(df_hotels)
-    # df_restaurants = df_generator.getDataFrameofThirdPage(df_restaurants)
-    #
-    # print(df_hotels)
-    # print(df_restaurants)
+    df_hotels = crawler.getDataFramefromTheme('Hotels')
+    df_restaurants = crawler.getDataFramefromTheme('Restaurants')
+    df_hotels = df_generator.getDataFrameofThirdPage(df_hotels)
+    df_restaurants = df_generator.getDataFrameofThirdPage(df_restaurants)
+
     # df_hotels.to_csv('hotels.csv', sep=',', encoding='utf-8', index=False)
     # df_restaurants.to_csv('restaurants.csv', sep=',', encoding='utf-8', index=False)
-    df_hotels = pd.read_csv('hotels.csv', sep=',')
-    df_restaurants = pd.read_csv('restaurants.csv', sep=',')
-    # print(df_hotels)
+    # df_hotels = pd.read_csv('hotels.csv', sep=',')
+    # df_restaurants = pd.read_csv('restaurants.csv', sep=',')
 
+    # Hotel Data Process Part
     review_document_hotels_data = text_cleaner.preProcess(df_hotels['Comment'])
-    df_cleancomments = df_generator.getDataFramefromList(review_document_hotels_data, df_hotels['Star'])
-    hotel_data = text_cleaner.getTFIDF(df_cleancomments['clean_comments'])
-    hotel_data_label = df_cleancomments['lables'].to_numpy()
+    df_hotel_cleancomments = df_generator.getDataFramefromList(review_document_hotels_data, df_hotels['Star'])
+    hotel_data = text_cleaner.getTFIDF(df_hotel_cleancomments['clean_comments'])
+    hotel_data_label = df_hotel_cleancomments['lables'].to_numpy()
     # print(df_restaurants)
 
-    model = KNeighborsClassifier(n_neighbors=3)
-    dataset_train, dataset_test, target_train, target_test = train_test_split(hotel_data, hotel_data_label, test_size=0.2)
-    model.fit(dataset_train, target_train)
-    predicted = model.predict(dataset_test)
-    accuracy_score(target_test, predicted)
+    # Split data for generalization test, hotel_data_test and hotel_data_label_test are the unused data for the model
+    training_hotel_data, hotel_data_test, target_hotel_data, hotel_data_label_test = train_test_split(hotel_data, hotel_data_label, test_size=0.2)
+
+    # Model Building (Hotel Data)
+    # 1. Knn
+    knn_model = KNeighborsClassifier(n_neighbors=3)
+    knn_hotel_trained_model = knn_model.fit(training_hotel_data, target_hotel_data)
+    # 2. Decision Tree
+    dt_model = DecisionTreeClassifier()
+    dt_hotel_trained_model = dt_model.fit(training_hotel_data, target_hotel_data)
+    # 3. Naive Bayes
+    nb_model = MultinomialNB()
+    nb_hotel_trained_model = nb_model.fit(training_hotel_data, target_hotel_data)
+    # 4. SVM
+    svm_model = SVC()
+    svm_hotel_trained_model = svm_model.fit(training_hotel_data, target_hotel_data)
+    # 5. Logistic Regression
+    lr_model = linear_model.LogisticRegression()
+    lr_hotel_trained_model = lr_model.fit(training_hotel_data, target_hotel_data)
+
+    # Accuracy for models on unseen data(Data Scope: 20%)
+    knn_hotel_score = accuracy_score(hotel_data_label_test, knn_hotel_trained_model.predict(hotel_data_test))
+    dt_hotel_score = accuracy_score(hotel_data_label_test, dt_hotel_trained_model.predict(hotel_data_test))
+    nb_hotel_score = accuracy_score(hotel_data_label_test, nb_hotel_trained_model.predict(hotel_data_test))
+    svm_hotel_score = accuracy_score(hotel_data_label_test, svm_hotel_trained_model.predict(hotel_data_test))
+    lr_hotel_score = accuracy_score(hotel_data_label_test, lr_hotel_trained_model.predict(hotel_data_test))
+
+    # Cross Validation on different models (Hotel Data, Data Scope: All) (Cross Validation: 10)
+    knn_hotel_cv_score = cross_val_score(knn_model, hotel_data, hotel_data_label, cv=10, scoring="accuracy").mean()
+    dt_hotel_cv_score = cross_val_score(dt_model, hotel_data, hotel_data_label, cv=10, scoring="accuracy").mean()
+    nb_hotel_cv_score = cross_val_score(nb_model, hotel_data, hotel_data_label, cv=10, scoring="accuracy").mean()
+    svm_hotel_cv_score = cross_val_score(svm_model, hotel_data, hotel_data_label, cv=10, scoring="accuracy").mean()
+    lr_hotel_cv_score = cross_val_score(lr_model, hotel_data, hotel_data_label, cv=10, scoring="accuracy").mean()
+
+    # Data visualization of hotel data
+    # Graph 1: Accuracy for models on unseen data (Hotel)
+    model_names = ['KNN', 'Decision Tree', 'Naive Bayes', 'SVM', 'Logistic Regression']
+    y_pos = np.arange(len(model_names))
+    hotel_model_score = [knn_hotel_score, dt_hotel_score, nb_hotel_score, svm_hotel_score, lr_hotel_score]
+    plt.bar(y_pos, hotel_model_score, align='center', alpha=0.5)
+    plt.xticks(y_pos, model_names, fontsize=10, rotation=60)
+    plt.xlabel('Models', fontsize=10)
+    plt.ylabel('Accuracy Score', fontsize=10)
+    plt.title('Accuracy for different models on unseen data (Hotel)')
+    for a, b in enumerate(hotel_model_score):
+        plt.text(a, b, '%.03f' % b, ha='center')
+    plt.show()
+    # Graph 2: Accuracy for models by using cross validation (Hotel)
+    hotel_model_cv_score = [knn_hotel_cv_score, dt_hotel_cv_score, nb_hotel_cv_score, svm_hotel_cv_score, lr_hotel_cv_score]
+    plt.bar(y_pos, hotel_model_cv_score, align='center', alpha=0.5)
+    plt.xticks(y_pos, model_names, fontsize=10, rotation=60)
+    plt.xlabel('Models', fontsize=10)
+    plt.ylabel('Accuracy Score (Cross Validation)', fontsize=10)
+    plt.title('Accuracy for different models (Cross Validation, Hotel)')
+    for a, b in enumerate(hotel_model_cv_score):
+        plt.text(a, b, '%.03f' % b, ha='center')
+    plt.show()
+
+
+    # Restaurant Data Process Part
+    review_document_restaurants_data = text_cleaner.preProcess(df_restaurants['Comment'])
+    df_restaurants_cleancomments = df_generator.getDataFramefromList(review_document_restaurants_data, df_restaurants['Star'])
+    restaurants_data = text_cleaner.getTFIDF(df_restaurants_cleancomments['clean_comments'])
+    restaurants_data_label = df_restaurants_cleancomments['lables'].to_numpy()
+
+    # Split data for generalization test, hotel_data_test and hotel_data_label_test are the unused data for the model
+    training_restaurants_data, restaurants_data_test, target_restaurants_data, restaurants_data_label_test\
+        = train_test_split(restaurants_data, restaurants_data_label, test_size=0.2)
+    # Model Building (Hotel Data)
+    # 1. Knn
+    knn_restaurants_trained_model = knn_model.fit(training_restaurants_data, target_restaurants_data)
+    # 2. Decision Tree
+    dt_restaurants_trained_model = dt_model.fit(training_restaurants_data, target_restaurants_data)
+    # 3. Naive Bayes
+    nb_restaurants_trained_model = nb_model.fit(training_restaurants_data, target_restaurants_data)
+    # 4. SVM
+    svm_restaurants_trained_model = svm_model.fit(training_restaurants_data, target_restaurants_data)
+    # 5. Logistic Regression
+    lr_restaurants_trained_model = lr_model.fit(training_restaurants_data, target_restaurants_data)
+
+    # Accuracy for models on unseen data(Data Scope: 20%)
+    knn_restaurants_score = accuracy_score(restaurants_data_label_test, knn_restaurants_trained_model.predict(restaurants_data_test))
+    dt_restaurants_score = accuracy_score(restaurants_data_label_test, dt_restaurants_trained_model.predict(restaurants_data_test))
+    nb_restaurants_score = accuracy_score(restaurants_data_label_test, nb_restaurants_trained_model.predict(restaurants_data_test))
+    svm_restaurants_score = accuracy_score(restaurants_data_label_test, svm_restaurants_trained_model.predict(restaurants_data_test))
+    lr_restaurants_score = accuracy_score(restaurants_data_label_test, lr_restaurants_trained_model.predict(restaurants_data_test))
+
+    # Graph 3: Accuracy for models on unseen data (Restaurant)
+    restaurants_model_score = [knn_restaurants_score, dt_restaurants_score, nb_restaurants_score, svm_restaurants_score, lr_restaurants_score]
+    plt.bar(y_pos, restaurants_model_score, align='center', alpha=0.5)
+    plt.xticks(y_pos, model_names, fontsize=10, rotation=60)
+    plt.xlabel('Models', fontsize=10)
+    plt.ylabel('Accuracy Score', fontsize=10)
+    plt.title('Accuracy for different models on unseen data (Restaurant)')
+    for a, b in enumerate(restaurants_model_score):
+        plt.text(a, b, '%.03f' % b, ha='center')
+    plt.show()
+
+    # Cross Validation on different models (Hotel Data, Data Scope: All) (Cross Validation: 10)
+    knn_restaurants_cv_score = cross_val_score(knn_model, restaurants_data, restaurants_data_label, cv=10, scoring="accuracy").mean()
+    dt_restaurants_cv_score = cross_val_score(dt_model, restaurants_data, restaurants_data_label, cv=10, scoring="accuracy").mean()
+    nb_restaurants_cv_score = cross_val_score(nb_model, restaurants_data, restaurants_data_label, cv=10, scoring="accuracy").mean()
+    svm_restaurants_cv_score = cross_val_score(svm_model, restaurants_data, restaurants_data_label, cv=10, scoring="accuracy").mean()
+    lr_restaurants_cv_score = cross_val_score(lr_model, restaurants_data, restaurants_data_label, cv=10, scoring="accuracy").mean()
+
+    # Graph 4: Accuracy for models by using cross validation (Hotel)
+    restaurants_model_cv_score = [knn_restaurants_cv_score, dt_restaurants_cv_score, nb_restaurants_cv_score, svm_restaurants_cv_score, lr_restaurants_cv_score]
+    plt.bar(y_pos, restaurants_model_cv_score, align='center', alpha=0.5)
+    plt.xticks(y_pos, model_names, fontsize=10, rotation=60)
+    plt.xlabel('Models', fontsize=10)
+    plt.ylabel('Accuracy Score (Cross Validation)', fontsize=10)
+    plt.title('Accuracy for different models (Cross Validation, Restaurant)')
+    for a, b in enumerate(restaurants_model_cv_score):
+        plt.text(a, b, '%.03f' % b, ha='center')
+    plt.show()
+
+    # # Run restaurant data on hotel model
+    # # Train the model by all the hotel data
+    # knn_hotel_trained_model_All = knn_model.fit(hotel_data, hotel_data_label)
+    # dt_hotel_trained_model_All = dt_model.fit(hotel_data, hotel_data_label)
+    # nb_hotel_trained_model_All = nb_model.fit(hotel_data, hotel_data_label)
+    # svm_hotel_trained_model_All = svm_model.fit(hotel_data, hotel_data_label)
+    # lr_hotel_trained_model_All = lr_model.fit(hotel_data, hotel_data_label)
+    #
+    # print(len(restaurants_data))
+    # print(len(restaurants_data_label))
+    # knn_hotel_score_onRe = accuracy_score(restaurants_data_label, knn_hotel_trained_model_All.predict(restaurants_data))
+    # dt_hotel_score_onRe = accuracy_score(restaurants_data_label, dt_hotel_trained_model_All.predict(restaurants_data))
+    # nb_hotel_score_onRe = accuracy_score(restaurants_data_label, nb_hotel_trained_model_All.predict(restaurants_data))
+    # svm_hotel_score_onRe = accuracy_score(restaurants_data_label, svm_hotel_trained_model_All.predict(restaurants_data))
+    # lr_hotel_score_onRe = accuracy_score(restaurants_data_label, lr_hotel_trained_model_All.predict(restaurants_data))
+    #
+    # # Graph 5: Accuracy for different hotel models on restaurant data
+    # hotel_model_score_onRe = [knn_hotel_score_onRe, dt_hotel_score_onRe, nb_hotel_score_onRe, svm_hotel_score_onRe, lr_hotel_score_onRe]
+    # plt.bar(y_pos, hotel_model_score_onRe, align='center', alpha=0.5)
+    # plt.xticks(y_pos, model_names, fontsize=10, rotation=60)
+    # plt.xlabel('Models', fontsize=10)
+    # plt.ylabel('Accuracy Score (hotel model on restaurant data)', fontsize=10)
+    # plt.title('Accuracy for different hotel models on restaurant data')
+    # for a, b in enumerate(hotel_model_score_onRe):
+    #     plt.text(a, b, '%.03f' % b, ha='center')
+    # plt.show()
+
+    # Run hotel data on restaurant model
+    knn_restaurants_trained_model_All = knn_model.fit(restaurants_data, restaurants_data_label)
+    dt_restaurants_trained_model_All = dt_model.fit(restaurants_data, restaurants_data_label)
+    nb_restaurants_trained_model_All = nb_model.fit(restaurants_data, restaurants_data_label)
+    svm_restaurants_trained_model_All = svm_model.fit(restaurants_data, restaurants_data_label)
+    lr_restaurants_trained_model_All = lr_model.fit(restaurants_data, restaurants_data_label)
+
+    knn_hotel_score_onHo = accuracy_score(hotel_data_label, knn_restaurants_trained_model_All.predict(hotel_data))
+    dt_hotel_score_onHo = accuracy_score(hotel_data_label, dt_restaurants_trained_model_All.predict(hotel_data))
+    nb_hotel_score_onHo = accuracy_score(hotel_data_label, nb_restaurants_trained_model_All.predict(hotel_data))
+    svm_hotel_score_onHo = accuracy_score(hotel_data_label, svm_restaurants_trained_model_All.predict(hotel_data))
+    lr_hotel_score_onHo = accuracy_score(hotel_data_label, lr_restaurants_trained_model_All.predict(hotel_data))
+
+    # Graph 6: Accuracy for different restaurant models on hotel data
+    hotel_model_score_onHo = [knn_hotel_score_onHo, dt_hotel_score_onHo, nb_hotel_score_onHo, svm_hotel_score_onHo,
+                              lr_hotel_score_onHo]
+    plt.bar(y_pos, hotel_model_score_onHo, align='center', alpha=0.5)
+    plt.xticks(y_pos, model_names, fontsize=10, rotation=60)
+    plt.xlabel('Models', fontsize=10)
+    plt.ylabel('Accuracy Score (restaurant model on hotel data)', fontsize=10)
+    plt.title('Accuracy for different restaurant models on hotel data')
+    for a, b in enumerate(hotel_model_score_onHo):
+        plt.text(a, b, '%.03f' % b, ha='center')
+    plt.show()
