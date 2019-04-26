@@ -376,13 +376,13 @@ if __name__ == '__main__':
         plt.text(a, b, '%.03f' % b, ha='center')
     plt.show()
 
-    # Accuracy for models on unseen data, Hotel(Data Scope: 20%)
+    # Accuracy for models on unseen data, Restaurant(Data Scope: 20%)
     knn_restaurants_score, dt_restaurants_score, nb_restaurants_score, svm_restaurants_score, lr_restaurants_score = \
         data_process.getPredictScore(restaurants_data, restaurants_data_label, 0.2)
 
-    # Cross Validation on different models, Hotel(Data Scope: All) (Cross Validation: 10)
+    # Cross Validation on different models, Restaurant(Data Scope: All) (Cross Validation: 10)
     knn_restaurants_cv_score, dt_restaurants_cv_score, nb_restaurants_cv_score, svm_restaurants_cv_score, lr_restaurants_cv_score = \
-        data_process.getPredictScoreCV(hotel_data, hotel_data_label)
+        data_process.getPredictScoreCV(restaurants_data, restaurants_data_label)
 
     # Graph 3: Accuracy for models on unseen data (Restaurant)
     restaurants_model_score = [knn_restaurants_score, dt_restaurants_score, nb_restaurants_score, svm_restaurants_score, lr_restaurants_score]
