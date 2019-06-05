@@ -22,6 +22,8 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.svm import SVC
 from sklearn import linear_model
 from sklearn.model_selection import cross_val_score
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
 
 # Ignore the future warnings raised by Pandas
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -269,7 +271,7 @@ class DataProcess:
 
         return knn_trained_model, dt_trained_model, nb_trained_model, svm_trained_model, lr_trained_model
 
-    def getPredictScore(self, train_data, test_data, test_size):
+    def getPredictScoreandCM(self, train_data, test_data, test_size):
         # Split data for generalization test, hotel_data_test and hotel_data_label_test are the unused data for the model
         training_data, test_training_data, target_data, test_target_data = train_test_split(train_data, test_data, test_size=test_size)
 
@@ -284,6 +286,21 @@ class DataProcess:
         lr_score = accuracy_score(test_target_data, lr_trained_model.predict(test_training_data))
 
         return knn_score, dt_score, nb_score, svm_score, lr_score
+
+    def getConfusionMatrix(self, train_data, test_data, test_size):
+        # Split data for generalization test, hotel_data_test and hotel_data_label_test are the unused data for the model
+        training_data, test_training_data, target_data, test_target_data = train_test_split(train_data, test_data, test_size=test_size)
+
+        knn_trained_model, dt_trained_model, nb_trained_model, svm_trained_model, lr_trained_model \
+            = self.getTrainedModel(training_data, target_data)
+
+        knn_cm = classification_report(test_target_data, knn_trained_model.predict(test_training_data))
+        dt_cm = confusion_matrix(test_target_data, dt_trained_model.predict(test_training_data), labels=[1, -1])
+        nb_cm = confusion_matrix(test_target_data, nb_trained_model.predict(test_training_data), labels=[1, -1])
+        svm_cm = confusion_matrix(test_target_data, svm_trained_model.predict(test_training_data), labels=[1, -1])
+        lr_cm = confusion_matrix(test_target_data, lr_trained_model.predict(test_training_data), labels=[1, -1])
+
+        return knn_cm, dt_cm, nb_cm, svm_cm, lr_cm
 
     def getPredictScoreCV(self, train_data, test_data):
         # Cross Validation on different models (Data Scope: All) (Cross Validation: 10)
@@ -347,6 +364,11 @@ if __name__ == '__main__':
     knn_hotel_score, dt_hotel_score, nb_hotel_score, svm_hotel_score, lr_hotel_score = \
         data_process.getPredictScore(hotel_data, hotel_data_label, 0.2)
 
+    # Confusion Matrix for models on unseen data, Hotel(Data Scope: 20%)
+    knn_cm, dt_cm, nb_cm, svm_cm, lr_cm = data_process.getConfusionMatrix(hotel_data, hotel_data_label, 0.2)
+    print("Confusion Matrix for Logistic Regression")
+    print(lr_cm)
+
     # Cross Validation on different models, Hotel(Data Scope: All) (Cross Validation: 10)
     knn_hotel_cv_score, dt_hotel_cv_score, nb_hotel_cv_score, svm_hotel_cv_score, lr_hotel_cv_score = \
         data_process.getPredictScoreCV(hotel_data, hotel_data_label)
@@ -379,6 +401,10 @@ if __name__ == '__main__':
     # Accuracy for models on unseen data, Restaurant(Data Scope: 20%)
     knn_restaurants_score, dt_restaurants_score, nb_restaurants_score, svm_restaurants_score, lr_restaurants_score = \
         data_process.getPredictScore(restaurants_data, restaurants_data_label, 0.2)
+
+    # Confusion Matrix for models on unseen data, Hotel(Data Scope: 20%)
+    knn_cm, dt_cm, nb_cm, svm_cm, lr_cm = data_process.getConfusionMatrix(hotel_data, hotel_data_label, 0.2)
+    print(knn_cm)
 
     # Cross Validation on different models, Restaurant(Data Scope: All) (Cross Validation: 10)
     knn_restaurants_cv_score, dt_restaurants_cv_score, nb_restaurants_cv_score, svm_restaurants_cv_score, lr_restaurants_cv_score = \
